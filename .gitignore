@@ -39,3 +39,6 @@ Thumbs.db
 # Project specific
 saves/
 *.log
+
+# Data files (should be versioned)
+!data/*.json

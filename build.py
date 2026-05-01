@@ -35,7 +35,7 @@ def main():
         if os.path.exists(folder):
             shutil.rmtree(folder)
 
-    # 创建spec配置
+    # 创建spec配置   - 添加data目录
     spec_content = f'''# -*- mode: python ; coding: utf-8 -*-
 
 block_cipher = None
@@ -46,6 +46,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('requirements.txt', '.'),
+        ('data', 'data'),
     ],
     hiddenimports=['pygame', 'numpy'],
     hookspath=[],

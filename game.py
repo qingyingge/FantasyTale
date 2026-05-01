@@ -17,15 +17,24 @@ from typing import List, Dict, Optional, Tuple, Callable
 import numpy as np
 
 # 导入游戏模块
+from src.data_loader import (
+    load_game_data,
+    GameDatabase,
+    Config,
+    PixelArt,
+    ItemType,
+    SkillType,
+    TileType,
+    GameState,
+    get_sprite,
+)
 from src.constants import (
-    Config, PixelArt, 
-    ItemType, SkillType, TileType, GameState,
-    SPRITE_PLAYER, SPRITE_NPC, SPRITE_ENEMY, 
-    SPRITE_TREE, SPRITE_HOUSE, SPRITE_CHEST, SPRITE_PORTAL
+    SPRITE_PLAYER, SPRITE_NPC, SPRITE_ENEMY,
+    SPRITE_TREE, SPRITE_HOUSE, SPRITE_CHEST, SPRITE_PORTAL,
+    load_sprites,
 )
 from src.models import (
     Item, Skill, Enemy, Quest, QuestObjective,
-    GameDatabase
 )
 
 
@@ -586,13 +595,13 @@ class Renderer:
     
     def _preload_sprites(self):
         """预渲染所有像素精灵"""
-        self.sprites['player'] = PixelArt.create_sprite(SPRITE_PLAYER, self.scale)
-        self.sprites['npc'] = PixelArt.create_sprite(SPRITE_NPC, self.scale)
-        self.sprites['enemy'] = PixelArt.create_sprite(SPRITE_ENEMY, self.scale)
-        self.sprites['tree'] = PixelArt.create_sprite(SPRITE_TREE, self.scale)
-        self.sprites['house'] = PixelArt.create_sprite(SPRITE_HOUSE, self.scale)
-        self.sprites['chest'] = PixelArt.create_sprite(SPRITE_CHEST, self.scale)
-        self.sprites['portal'] = PixelArt.create_sprite(SPRITE_PORTAL, self.scale)
+        self.sprites['player'] = get_sprite('player', self.scale)
+        self.sprites['npc'] = get_sprite('npc', self.scale)
+        self.sprites['enemy'] = get_sprite('enemy', self.scale)
+        self.sprites['tree'] = get_sprite('tree', self.scale)
+        self.sprites['house'] = get_sprite('house', self.scale)
+        self.sprites['chest'] = get_sprite('chest', self.scale)
+        self.sprites['portal'] = get_sprite('portal', self.scale)
     
     def draw_tile(self, x, y, tile_type: TileType, camera_x=0, camera_y=0):
         """绘制单个瓦片"""
@@ -665,8 +674,10 @@ class Renderer:
             offset_y = (self.tile_size - sprite.get_height()) // 2
             self.screen.blit(sprite, (screen_x + offset_x, screen_y + offset_y))
     
-    def draw_text(self, text, x, y, color=Config.COLORS['white'], font=None, center=False):
+    def draw_text(self, text, x, y, color=None, font=None, center=False):
         """绘制文本"""
+        if color is None:
+            color = (255, 255, 255)
         if font is None:
             font = self.font_medium
         
@@ -744,31 +755,19 @@ class Renderer:
 # ============================================================================
 class Game:
     """主游戏类"""
-    
+
     def __init__(self):
+        load_game_data()
+        load_sprites()
+
         pygame.init()
         self.screen = pygame.display.set_mode((Config.SCREEN_WIDTH, Config.SCREEN_HEIGHT))
         pygame.display.set_caption("幻境传说：迷失大陆")
         self.clock = pygame.time.Clock()
         self.running = True
-        
+
         self.renderer = Renderer(self.screen)
         self.state = GameState.TITLE
-
-        # 初始化瓦片颜色映射
-        GameDatabase.TILE_COLORS = {
-            TileType.GRASS: Config.COLORS['grass'],
-            TileType.WATER: Config.COLORS['water'],
-            TileType.SAND: Config.COLORS['sand'],
-            TileType.STONE: Config.COLORS['stone'],
-            TileType.FOREST: Config.COLORS['forest'],
-            TileType.SNOW: Config.COLORS['snow'],
-            TileType.LAVA: Config.COLORS['lava'],
-            TileType.PATH: (180, 160, 120),
-            TileType.BRIDGE: (140, 100, 60),
-            TileType.FLOWER: (100, 180, 80),
-            TileType.MOUNTAIN: (100, 100, 110),
-        }
 
         # 游戏数据
         self.player = Player()
@@ -1468,6 +1467,12 @@ class Game:
                 skills=enemy_template.skills.copy(),
                 sprite_data=SPRITE_ENEMY
             )
+
+            # 加载敌人精灵数据
+            if enemy_template.sprite_data is None:
+                from src.data_loader import PixelArt
+                enemy_sprites = PixelArt.load_sprites()
+                enemy_template.sprite_data = enemy_sprites.get('enemy')
 
             self.battle_log = [f"遭遇了 {self.battle_enemy.name}！"]
             self.battle_turn = "player" if self.player.get_total_speed() >= self.battle_enemy.speed else "enemy"

@@ -1,0 +1,56 @@
+{
+  "game": {
+    "screen_width": 1024,
+    "screen_height": 768,
+    "fps": 60,
+    "tile_size": 48,
+    "pixel_scale": 3
+  },
+  "colors": {
+    "black": [0, 0, 0],
+    "white": [255, 255, 255],
+    "dark_gray": [40, 40, 60],
+    "gray": [100, 100, 120],
+    "light_gray": [180, 180, 200],
+    "red": [200, 50, 50],
+    "dark_red": [120, 30, 30],
+    "green": [50, 180, 80],
+    "dark_green": [30, 100, 50],
+    "blue": [60, 100, 200],
+    "dark_blue": [30, 50, 120],
+    "gold": [220, 180, 60],
+    "brown": [120, 80, 50],
+    "dark_brown": [70, 45, 25],
+    "purple": [140, 60, 180],
+    "cyan": [60, 200, 200],
+    "orange": [220, 140, 40],
+    "yellow": [240, 220, 60],
+    "pink": [220, 120, 160],
+    "grass": [80, 160, 60],
+    "water": [50, 100, 200],
+    "sand": [220, 200, 140],
+    "stone": [140, 140, 150],
+    "snow": [230, 240, 255],
+    "forest": [40, 100, 40],
+    "lava": [200, 60, 30]
+  },
+  "tile_colors": {
+    "grass": [80, 160, 60],
+    "water": [50, 100, 200],
+    "sand": [220, 200, 140],
+    "stone": [140, 140, 150],
+    "forest": [40, 100, 40],
+    "snow": [230, 240, 255],
+    "lava": [200, 60, 30],
+    "path": [180, 160, 120],
+    "bridge": [140, 100, 60],
+    "flower": [100, 180, 80],
+    "mountain": [100, 100, 110]
+  },
+  "enums": {
+    "item_type": ["WEAPON", "ARMOR", "ACCESSORY", "CONSUMABLE", "MATERIAL", "QUEST"],
+    "skill_type": ["PHYSICAL", "MAGIC", "HEAL", "BUFF", "DEBUFF"],
+    "tile_type": ["GRASS", "WATER", "SAND", "STONE", "FOREST", "SNOW", "LAVA", "PATH", "BRIDGE", "FLOWER", "MOUNTAIN"],
+    "game_state": ["TITLE", "EXPLORE", "DIALOGUE", "BATTLE", "INVENTORY", "SHOP", "QUEST_LOG", "CHARACTER", "GAME_OVER", "VICTORY", "ARENA", "SAVE_LOAD"]
+  }
+}

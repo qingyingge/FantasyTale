@@ -1,0 +1,384 @@
+{
+  "main_quests": [
+    {
+      "id": "main_ch1",
+      "name": "觉醒的勇者",
+      "description": "你从睡梦中醒来，发现自己身处一个陌生的村庄。长老告诉你，你是被选中的勇者，需要去寻找失落的水晶碎片来拯救这个濒临毁灭的世界。",
+      "type": "main",
+      "chapter": 1,
+      "objectives": [
+        {
+          "description": "与村长对话",
+          "target_type": "talk",
+          "target_id": "village_elder",
+          "required": 1
+        },
+        {
+          "description": "探索草原区域",
+          "target_type": "explore",
+          "target_id": "grassland",
+          "required": 1
+        },
+        {
+          "description": "击败3只怪物",
+          "target_type": "kill",
+          "target_id": "any",
+          "required": 3
+        },
+        {
+          "description": "到达沙漠入口",
+          "target_type": "reach",
+          "target_id": "desert_entrance",
+          "required": 1
+        }
+      ],
+      "rewards": {
+        "exp": 200,
+        "gold": 100,
+        "items": ["iron_sword", "cloth_armor"]
+      },
+      "giver_npc": "village_elder"
+    },
+    {
+      "id": "main_ch2",
+      "name": "沙漠的秘密",
+      "description": "在沙漠深处的远古遗迹中，隐藏着着一块水晶碎片。穿越危险的沙漠，击败守卫的怪物，获取水晶碎片。",
+      "type": "main",
+      "chapter": 2,
+      "objectives": [
+        {
+          "description": "穿越沙漠",
+          "target_type": "explore",
+          "target_id": "desert",
+          "required": 1
+        },
+        {
+          "description": "击败远古木乃伊",
+          "target_type": "kill",
+          "target_id": "ancient_mummy",
+          "required": 1
+        },
+        {
+          "description": "获得水晶碎片",
+          "target_type": "collect",
+          "target_id": "crystal_shard",
+          "required": 1
+        },
+        {
+          "description": "到达雪山脚下",
+          "target_type": "reach",
+          "target_id": "snow_mountain",
+          "required": 1
+        }
+      ],
+      "rewards": {
+        "exp": 500,
+        "gold": 300,
+        "items": ["chain_mail", "steel_blade"]
+      },
+      "giver_npc": "desert_sage"
+    },
+    {
+      "id": "main_ch3",
+      "name": "冰雪的试炼",
+      "description": "雪山之巅隐藏着第二块水晶碎片，但那里被冰雪女巫和她的仆从们守护着。你必须通过冰雪的试炼。",
+      "type": "main",
+      "chapter": 3,
+      "objectives": [
+        {
+          "description": "攀登雪山",
+          "target_type": "explore",
+          "target_id": "snow_mountain",
+          "required": 1
+        },
+        {
+          "description": "击败冰霜龙",
+          "target_type": "kill",
+          "target_id": "frost_dragon",
+          "required": 1
+        },
+        {
+          "description": "获得远古钥匙",
+          "target_type": "collect",
+          "target_id": "ancient_key",
+          "required": 1
+        },
+        {
+          "description": "到达火山入口",
+          "target_type": "reach",
+          "target_id": "volcano_entrance",
+          "required": 1
+        }
+      ],
+      "rewards": {
+        "exp": 800,
+        "gold": 500,
+        "items": ["magic_robe", "magic_staff"]
+      },
+      "giver_npc": "snow_hermit"
+    },
+    {
+      "id": "main_ch4",
+      "name": "最终决战",
+      "description": "魔王在火山深处的城堡中等待着最终决战。收集所有力量，击败魔王，拯救世界！",
+      "type": "main",
+      "chapter": 4,
+      "objectives": [
+        {
+          "description": "穿越火山",
+          "target_type": "explore",
+          "target_id": "volcano",
+          "required": 1
+        },
+        {
+          "description": "击败地狱飞龙",
+          "target_type": "kill",
+          "target_id": "inferno_wyrm",
+          "required": 1
+        },
+        {
+          "description": "获得龙鳞",
+          "target_type": "collect",
+          "target_id": "dragon_scale",
+          "required": 1
+        },
+        {
+          "description": "击败魔王",
+          "target_type": "kill",
+          "target_id": "demon_lord",
+          "required": 1
+        }
+      ],
+      "rewards": {
+        "exp": 2000,
+        "gold": 1000,
+        "items": ["legendary_sword", "elixir"]
+      },
+      "giver_npc": "volcano_guide"
+    }
+  ],
+  "side_quests": [
+    {
+      "id": "side_herbs",
+      "name": "采集药草",
+      "description": "村庄的药师需要一些药草来制作药水。",
+      "type": "side",
+      "chapter": 0,
+      "objectives": [
+        {
+          "description": "采集5份药草",
+          "target_type": "collect",
+          "target_id": "herb",
+          "required": 5
+        }
+      ],
+      "rewards": {
+        "exp": 50,
+        "gold": 30,
+        "items": ["health_potion", "health_potion", "health_potion"]
+      },
+      "giver_npc": "village_alchemist"
+    },
+    {
+      "id": "side_wolf_hunt",
+      "name": "狼群威胁",
+      "description": "村庄附近的狼群越来越猖獗，需要有人去解决这个威胁。",
+      "type": "side",
+      "chapter": 0,
+      "objectives": [
+        {
+          "description": "击败5只野狼",
+          "target_type": "kill",
+          "target_id": "wolf",
+          "required": 5
+        }
+      ],
+      "rewards": {
+        "exp": 100,
+        "gold": 60,
+        "items": ["leather_armor"]
+      },
+      "giver_npc": "village_hunter"
+    },
+    {
+      "id": "side_treasure",
+      "name": "宝藏猎人",
+      "description": "据说草原上隐藏着一些宝箱，找到它们！",
+      "type": "side",
+      "chapter": 0,
+      "objectives": [
+        {
+          "description": "找到3个宝箱",
+          "target_type": "collect",
+          "target_id": "treasure",
+          "required": 3
+        }
+      ],
+      "rewards": {
+        "exp": 150,
+        "gold": 200,
+        "items": ["power_ring", "shield_amulet"]
+      },
+      "giver_npc": "treasure_map_npc"
+    },
+    {
+      "id": "side_sand_ruins",
+      "name": "沙漠遗迹",
+      "description": "沙漠深处有一座远古遗迹，探索它并获得宝藏。",
+      "type": "side",
+      "chapter": 0,
+      "objectives": [
+        {
+          "description": "探索沙漠遗迹",
+          "target_type": "explore",
+          "target_id": "desert_ruins",
+          "required": 1
+        },
+        {
+          "description": "击败墓穴守卫",
+          "target_type": "kill",
+          "target_id": "tomb_guardian",
+          "required": 2
+        }
+      ],
+      "rewards": {
+        "exp": 300,
+        "gold": 250,
+        "items": ["steel_blade", "greater_health_potion"]
+      },
+      "giver_npc": "desert_trader"
+    },
+    {
+      "id": "side_snow_herbs",
+      "name": "雪山灵药",
+      "description": "雪山上生长着稀有的灵药，为长老采集一些回来。",
+      "type": "side",
+      "chapter": 0,
+      "objectives": [
+        {
+          "description": "采集3份雪山灵药",
+          "target_type": "collect",
+          "target_id": "snow_herb",
+          "required": 3
+        }
+      ],
+      "rewards": {
+        "exp": 200,
+        "gold": 150,
+        "items": ["elixir", "greater_mana_potion"]
+      },
+      "giver_npc": "village_elder"
+    },
+    {
+      "id": "side_dragon_slayer",
+      "name": "屠龙勇士",
+      "description": "击败雪山上的冰霜龙，成为真正的屠龙勇士！",
+      "type": "side",
+      "chapter": 0,
+      "objectives": [
+        {
+          "description": "击败冰霜龙",
+          "target_type": "kill",
+          "target_id": "frost_dragon",
+          "required": 1
+        }
+      ],
+      "rewards": {
+        "exp": 500,
+        "gold": 400,
+        "items": ["wisdom_crown", "lucky_charm"]
+      },
+      "giver_npc": "dragon_slayer_guild"
+    },
+    {
+      "id": "side_volcano_explore",
+      "name": "火山探险",
+      "description": "火山深处据说有珍贵的材料，去收集一些吧。",
+      "type": "side",
+      "chapter": 0,
+      "objectives": [
+        {
+          "description": "探索火山深处",
+          "target_type": "explore",
+          "target_id": "volcano_deep",
+          "required": 1
+        },
+        {
+          "description": "击败3只火元素",
+          "target_type": "kill",
+          "target_id": "fire_elemental",
+          "required": 3
+        }
+      ],
+      "rewards": {
+        "exp": 600,
+        "gold": 500,
+        "items": ["plate_armor", "greater_health_potion"]
+      },
+      "giver_npc": "volcano_miner"
+    },
+    {
+      "id": "side_bandit_camp",
+      "name": "清剿强盗",
+      "description": "草原上有一个强盗营地，去摧毁它！",
+      "type": "side",
+      "chapter": 0,
+      "objectives": [
+        {
+          "description": "击败强盗",
+          "target_type": "kill",
+          "target_id": "bandit",
+          "required": 5
+        }
+      ],
+      "rewards": {
+        "exp": 120,
+        "gold": 100,
+        "items": ["iron_sword", "greater_health_potion"]
+      },
+      "giver_npc": "village_guard"
+    },
+    {
+      "id": "side_magic_study",
+      "name": "魔法研究",
+      "description": "帮助法师研究怪物的魔法抗性。",
+      "type": "side",
+      "chapter": 0,
+      "objectives": [
+        {
+          "description": "击败10只任意怪物",
+          "target_type": "kill",
+          "target_id": "any",
+          "required": 10
+        }
+      ],
+      "rewards": {
+        "exp": 250,
+        "gold": 200,
+        "items": ["magic_staff", "greater_mana_potion"]
+      },
+      "giver_npc": "village_mage"
+    },
+    {
+      "id": "side_arena",
+      "name": "竞技场挑战",
+      "description": "在竞技场中证明自己的实力！",
+      "type": "side",
+      "chapter": 0,
+      "objectives": [
+        {
+          "description": "在竞技场获胜3次",
+          "target_type": "kill",
+          "target_id": "arena_enemy",
+          "required": 3
+        }
+      ],
+      "rewards": {
+        "exp": 400,
+        "gold": 350,
+        "items": ["legendary_sword", "elixir"]
+      },
+      "giver_npc": "arena_master"
+    }
+  ]
+}

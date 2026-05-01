@@ -5,8 +5,7 @@
 
 import random
 import pygame
-from src.constants import Config, SkillType, GameState
-from src.models import GameDatabase
+from src.data_loader import Config, SkillType, GameState, GameDatabase
 
 
 class BattleSystem:
