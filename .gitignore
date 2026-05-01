@@ -1,9 +1,41 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 *.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
 venv/
+env/
+ENV/
+
+# Build outputs
 build/
 dist/
 *.spec
-*.zip
+
+# Compiled binaries
 *.exe
+*.dll
+*.so
+
+# Archives
+*.zip
+*.tar.gz
+*.7z
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+saves/
+*.log
