@@ -769,6 +769,21 @@ class Game:
         self.renderer = Renderer(self.screen)
         self.state = GameState.TITLE
 
+        # 初始化瓦片颜色映射
+        GameDatabase.TILE_COLORS = {
+            TileType.GRASS: Config.COLORS['grass'],
+            TileType.WATER: Config.COLORS['water'],
+            TileType.SAND: Config.COLORS['sand'],
+            TileType.STONE: Config.COLORS['stone'],
+            TileType.FOREST: Config.COLORS['forest'],
+            TileType.SNOW: Config.COLORS['snow'],
+            TileType.LAVA: Config.COLORS['lava'],
+            TileType.PATH: (180, 160, 120),
+            TileType.BRIDGE: (140, 100, 60),
+            TileType.FLOWER: (100, 180, 80),
+            TileType.MOUNTAIN: (100, 100, 110),
+        }
+
         # 游戏数据
         self.player = Player()
         self.maps = create_world_maps()
@@ -1997,6 +2012,14 @@ class Game:
                     self.player_turn_done = False
                     self.battle_ended = False
                     self.is_arena_battle = False
+                    # 清除按键状态，防止切换状态后自动移动
+                    self.keys_pressed = {
+                        'up': False,
+                        'down': False,
+                        'left': False,
+                        'right': False
+                    }
+                    self.move_cooldown = 0
             
             if self.state == GameState.TITLE:
                 self.handle_title_input(event)
@@ -2066,27 +2089,31 @@ class Game:
         
         # 绘制传送门
         for portal in self.current_map.portals:
-            self.renderer.draw_entity('portal', portal["x"], portal["y"], 
-                                     self.camera_x, self.camera_y)
+            if self.current_map.explored[int(portal["y"])][int(portal["x"])]:
+                self.renderer.draw_entity('portal', portal["x"], portal["y"], 
+                                         self.camera_x, self.camera_y)
         
         # 绘制宝箱
         for chest in self.current_map.chests:
-            if not chest["opened"]:
+            if not chest["opened"] and self.current_map.explored[int(chest["y"])][int(chest["x"])]:
                 self.renderer.draw_entity('chest', chest["x"], chest["y"],
                                          self.camera_x, self.camera_y)
         
         # 绘制NPC
         for npc in self.current_map.npcs:
-            self.renderer.draw_entity('npc', npc["x"], npc["y"],
-                                     self.camera_x, self.camera_y)
+            if self.current_map.explored[int(npc["y"])][int(npc["x"])]:
+                self.renderer.draw_entity('npc', npc["x"], npc["y"],
+                                         self.camera_x, self.camera_y)
         
         # 绘制敌人
         for enemy in self.current_map.enemies:
-            self.renderer.draw_entity('enemy', enemy["x"], enemy["y"],
-                                     self.camera_x, self.camera_y)
+            if self.current_map.explored[int(enemy["y"])][int(enemy["x"])]:
+                self.renderer.draw_entity('enemy', enemy["x"], enemy["y"],
+                                         self.camera_x, self.camera_y)
         
         # 绘制玩家
-        self.renderer.draw_entity('player', self.player.x, self.player.y,
+        if self.current_map.explored[int(self.player.y)][int(self.player.x)]:
+            self.renderer.draw_entity('player', self.player.x, self.player.y,
                                  self.camera_x, self.camera_y)
         
         # 绘制HUD
