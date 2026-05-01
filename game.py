@@ -87,6 +87,11 @@ class Player:
     enemies_defeated: int = 0
     treasures_found: int = 0
     areas_explored: set = field(default_factory=set)
+
+    # 图鉴
+    known_enemies: set = field(default_factory=set)
+    known_items: set = field(default_factory=set)
+    discovered_locations: set = field(default_factory=set)
     
     def get_total_attack(self):
         total = self.attack
@@ -817,6 +822,10 @@ class Game:
         self.inventory_page = 0
         self.character_menu_index = 0
         self.quest_menu_index = 0
+
+        # 图鉴系统
+        self.bestiary_tab = 0  # 0:敌人 1:物品 2:技能
+        self.bestiary_index = 0
         
         # 标题画面
         self.title_menu_index = 0
@@ -850,6 +859,7 @@ class Game:
         self.keys_pressed = {}
         self.move_cooldown = 0  # 移动冷却时间（帧）
         self.move_delay = 8  # 每8帧移动一次（60FPS下约7.5次/秒）
+        self.steps_since_encounter = 3  # 移动3步后才能遇敌
         
         # 输入防抖
         self.input_cooldown = 0
@@ -1203,6 +1213,12 @@ class Game:
                 self.state = GameState.QUEST_LOG
                 self.quest_menu_index = 0
                 return
+
+            if event.key == pygame.K_b:
+                self.state = GameState.BESTIARY
+                self.bestiary_tab = 0
+                self.bestiary_index = 0
+                return
             
             # 存档快捷键
             if event.key == pygame.K_F5:
@@ -1272,12 +1288,15 @@ class Game:
                 return
         
         # 检查敌人（随机遇敌）
+        enemy_to_remove = None
         for enemy_data in self.current_map.enemies:
             if enemy_data["x"] == new_x and enemy_data["y"] == new_y:
                 self.start_battle(enemy_data["id"])
-                # 击败后移除敌人
-                self.current_map.enemies.remove(enemy_data)
-                return
+                enemy_to_remove = enemy_data
+                break
+        if enemy_to_remove:
+            self.current_map.enemies.remove(enemy_to_remove)
+            return
         
         # 检查宝箱
         for chest in self.current_map.chests:
@@ -1317,7 +1336,15 @@ class Game:
     
     def check_random_encounter(self):
         """随机遇敌"""
+        # 战斗后必须移动3步才可能遇敌
+        if self.steps_since_encounter >= 0:
+            self.steps_since_encounter -= 1
+            return
+        
         if random.random() < 0.08:  # 8% 遇敌率
+            # 战斗后重置计数
+            self.steps_since_encounter = 3
+            
             # 根据地图选择合适的敌人
             map_name = self.player.current_map
             enemy_pool = []
@@ -1419,7 +1446,7 @@ class Game:
         """打开宝箱"""
         chest["opened"] = True
         self.player.treasures_found += 1
-        
+
         items_found = []
         for item_id in chest["items"]:
             if item_id.startswith("gold_"):
@@ -1430,10 +1457,14 @@ class Game:
                 self.player.add_item(item_id)
                 item = GameDatabase.ITEMS.get(item_id)
                 if item:
+                    # 记录物品到图鉴
+                    if item_id not in self.player.known_items:
+                        self.player.known_items.add(item_id)
+                        self.show_message(f"发现新物品: {item.name}!")
                     items_found.append(item.name)
-        
+
         self.show_message(f"获得：{', '.join(items_found)}！")
-        
+
         # 更新任务进度
         self.update_quest_objective("collect", "treasure")
     
@@ -1678,6 +1709,8 @@ class Game:
     
     def player_defend(self):
         """玩家防御"""
+        # 移除旧的同名buff，避免叠加
+        self.player.buffs = [b for b in self.player.buffs if b["stat"] != "defense"]
         self.player.buffs.append({
             "stat": "defense",
             "amount": self.player.get_total_defense() // 2,
@@ -1802,6 +1835,9 @@ class Game:
         
         self.update_quest_objective("kill", self.battle_enemy.id)
         self.update_quest_objective("kill", "any")
+
+        # 重置遇敌冷却计数
+        self.steps_since_encounter = 3
 
         # 2秒后返回探索
         pygame.time.set_timer(pygame.USEREVENT + 2, 2000)
@@ -1994,7 +2030,7 @@ class Game:
             # 特殊事件处理
             if event.type == pygame.USEREVENT + 1:
                 pygame.time.set_timer(pygame.USEREVENT + 1, 0)
-                if self.state == GameState.BATTLE and self.battle_turn == "enemy":
+                if self.state == GameState.BATTLE and self.battle_turn == "enemy" and not self.battle_ended:
                     self.enemy_turn()
             
             if event.type == pygame.USEREVENT + 2:
@@ -2039,6 +2075,8 @@ class Game:
                 self.handle_quest_log_input(event)
             elif self.state == GameState.SAVE_LOAD:
                 self.handle_save_load_input(event)
+            elif self.state == GameState.BESTIARY:
+                self.handle_bestiary_input(event)
             elif self.state in (GameState.GAME_OVER, GameState.VICTORY):
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
@@ -2142,10 +2180,10 @@ class Game:
         self.renderer.draw_text(f"MP {self.player.mp}/{self.player.max_mp}", 170, 27, Config.COLORS['white'], self.renderer.font_small)
         
         # 金币
-        self.renderer.draw_text(f"💰 {self.player.gold}", 310, 10, Config.COLORS['gold'])
+        self.renderer.draw_text(f"G {self.player.gold}", 310, 10, Config.COLORS['gold'])
         
         # 地图名称
-        self.renderer.draw_text(f"📍 {self.current_map.name}", Config.SCREEN_WIDTH - 200, 10, 
+        self.renderer.draw_text(f"@ {self.current_map.name}", Config.SCREEN_WIDTH - 200, 10, 
                                Config.COLORS['cyan'])
         
         # 当前位置
@@ -2209,22 +2247,39 @@ class Game:
         # 技能选择
         elif self.battle_selecting_skill:
             skills = [GameDatabase.SKILLS[sid] for sid in self.player.unlocked_skills]
-            self.renderer.draw_text("选择技能:", 600, 350, Config.COLORS['gold'])
+            self.renderer.draw_text("选择技能 (ESC返回):", 600, 350, Config.COLORS['gold'])
             for i, skill in enumerate(skills):
                 color = Config.COLORS['gold'] if i == self.battle_submenu_index else Config.COLORS['white']
                 marker = "▶ " if i == self.battle_submenu_index else "  "
                 self.renderer.draw_text(f"{marker}{skill.name} (MP {skill.mana_cost})", 600, 380 + i * 30, color)
+
+            # 显示选中技能的详细信息
+            if skills and self.battle_submenu_index < len(skills):
+                skill = skills[self.battle_submenu_index]
+                detail_y = 380 + len(skills) * 30 + 20
+                self.renderer.draw_text(f"类型: {skill.skill_type.value}", 600, detail_y, Config.COLORS['cyan'], self.renderer.font_small)
+                self.renderer.draw_text(f"效果: {skill.description}", 600, detail_y + 25, Config.COLORS['light_gray'], self.renderer.font_small)
         
         # 道具选择
         elif self.battle_selecting_item:
-            consumables = [(GameDatabase.ITEMS[iid], qty) for iid, qty in self.player.inventory.items() 
+            consumables = [(GameDatabase.ITEMS[iid], qty) for iid, qty in self.player.inventory.items()
                           if iid in GameDatabase.ITEMS and GameDatabase.ITEMS[iid].item_type == ItemType.CONSUMABLE]
-            self.renderer.draw_text("选择道具:", 600, 350, Config.COLORS['gold'])
+            self.renderer.draw_text("选择道具 (ESC返回):", 600, 350, Config.COLORS['gold'])
             if consumables:
                 for i, (item, qty) in enumerate(consumables):
                     color = Config.COLORS['gold'] if i == self.battle_submenu_index else Config.COLORS['white']
                     marker = "▶ " if i == self.battle_submenu_index else "  "
                     self.renderer.draw_text(f"{marker}{item.name} x{qty}", 600, 380 + i * 30, color)
+
+                # 显示选中道具的详细信息
+                if consumables and self.battle_submenu_index < len(consumables):
+                    item, qty = consumables[self.battle_submenu_index]
+                    detail_y = 380 + len(consumables) * 30 + 20
+                    if item.heal_amount > 0:
+                        self.renderer.draw_text(f"回复HP: +{item.heal_amount}", 600, detail_y, Config.COLORS['green'], self.renderer.font_small)
+                    if item.mana_amount > 0:
+                        self.renderer.draw_text(f"回复MP: +{item.mana_amount}", 600, detail_y + 25, Config.COLORS['blue'], self.renderer.font_small)
+                    self.renderer.draw_text(f"描述: {item.description}", 600, detail_y + 50, Config.COLORS['light_gray'], self.renderer.font_small)
             else:
                 self.renderer.draw_text("没有可用道具", 600, 380, Config.COLORS['gray'])
         
@@ -2422,6 +2477,128 @@ class Game:
         self.renderer.draw_text("TAB: 切换保存/加载模式  |  ↑↓: 选择存档位  |  空格/回车: 确认  |  ESC: 返回",
                                Config.SCREEN_WIDTH // 2, Config.SCREEN_HEIGHT - 40,
                                Config.COLORS['light_gray'], self.renderer.font_small, center=True)
+
+    def handle_bestiary_input(self, event):
+        """处理图鉴界面输入"""
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.state = GameState.EXPLORE
+                return
+
+            if event.key == pygame.K_TAB:
+                self.bestiary_tab = (self.bestiary_tab + 1) % 3
+                self.bestiary_index = 0
+                return
+
+            if event.key == pygame.K_UP:
+                max_index = self._get_bestiary_count()
+                if max_index > 0:
+                    self.bestiary_index = (self.bestiary_index - 1) % max_index
+            elif event.key == pygame.K_DOWN:
+                max_index = self._get_bestiary_count()
+                if max_index > 0:
+                    self.bestiary_index = (self.bestiary_index + 1) % max_index
+
+    def _get_bestiary_count(self):
+        """获取当前图鉴标签的条目数量"""
+        if self.bestiary_tab == 0:
+            return len(self.player.known_enemies)
+        elif self.bestiary_tab == 1:
+            return len(self.player.known_items)
+        else:
+            return len(self.player.unlocked_skills)
+
+    def draw_bestiary_screen(self):
+        """绘制图鉴界面"""
+        self.renderer.draw_menu_background()
+
+        # 标题
+        self.renderer.draw_text("图 鉴", Config.SCREEN_WIDTH // 2, 40, Config.COLORS['gold'],
+                               self.renderer.font_title, center=True)
+
+        # 页签
+        tabs = ["敌人", "物品", "技能"]
+        tab_colors = [Config.COLORS['gold'] if i == self.bestiary_tab else Config.COLORS['gray'] for i in range(3)]
+        for i, tab in enumerate(tabs):
+            self.renderer.draw_text(f"[{tab}]", 150 + i * 100, 80, tab_colors[i])
+
+        # 显示内容
+        content_x = 80
+        content_y = 120
+
+        if self.bestiary_tab == 0:
+            # 敌人图鉴
+            if not self.player.known_enemies:
+                self.renderer.draw_text("尚未发现任何敌人", Config.SCREEN_WIDTH // 2, 200,
+                                       Config.COLORS['gray'], self.renderer.font_large, center=True)
+            else:
+                known_list = list(self.player.known_enemies)
+                for i, enemy_id in enumerate(known_list):
+                    if enemy_id in GameDatabase.ENEMIES:
+                        enemy = GameDatabase.ENEMIES[enemy_id]
+                        color = Config.COLORS['gold'] if i == self.bestiary_index else Config.COLORS['white']
+                        marker = "▶ " if i == self.bestiary_index else "  "
+                        self.renderer.draw_text(f"{marker}{enemy.icon} {enemy.name} Lv.{enemy.level}",
+                                               content_x, content_y + i * 35, color)
+
+                        if i == self.bestiary_index:
+                            detail_y = content_y + len(known_list) * 35 + 30
+                            self.renderer.draw_text(f"HP: {enemy.hp}  MP: {enemy.mp}", content_x, detail_y, Config.COLORS['cyan'], self.renderer.font_small)
+                            self.renderer.draw_text(f"攻击: {enemy.attack}  防御: {enemy.defense}  魔力: {enemy.magic}", content_x, detail_y + 25, Config.COLORS['cyan'], self.renderer.font_small)
+                            self.renderer.draw_text(f"经验奖励: {enemy.exp_reward}  金币奖励: {enemy.gold_reward}", content_x, detail_y + 50, Config.COLORS['cyan'], self.renderer.font_small)
+                            self.renderer.draw_text(f"掉落: {', '.join(enemy.drops) if enemy.drops else '无'}", content_x, detail_y + 75, Config.COLORS['light_gray'], self.renderer.font_small)
+
+        elif self.bestiary_tab == 1:
+            # 物品图鉴
+            if not self.player.known_items:
+                self.renderer.draw_text("尚未发现任何物品", Config.SCREEN_WIDTH // 2, 200,
+                                       Config.COLORS['gray'], self.renderer.font_large, center=True)
+            else:
+                known_list = list(self.player.known_items)
+                for i, item_id in enumerate(known_list):
+                    if item_id in GameDatabase.ITEMS:
+                        item = GameDatabase.ITEMS[item_id]
+                        color = Config.COLORS['gold'] if i == self.bestiary_index else Config.COLORS['white']
+                        marker = "▶ " if i == self.bestiary_index else "  "
+                        self.renderer.draw_text(f"{marker}{item.icon} {item.name} ({item.item_type.value})",
+                                               content_x, content_y + i * 35, color)
+
+                        if i == self.bestiary_index:
+                            detail_y = content_y + len(known_list) * 35 + 30
+                            props = []
+                            if item.attack: props.append(f"攻击+{item.attack}")
+                            if item.defense: props.append(f"防御+{item.defense}")
+                            if item.magic: props.append(f"魔力+{item.magic}")
+                            if item.heal_amount: props.append(f"回复HP+{item.heal_amount}")
+                            if item.mana_amount: props.append(f"回复MP+{item.mana_amount}")
+                            if item.price: props.append(f"售价: {item.price}")
+                            prop_text = " | ".join(props) if props else "无特殊属性"
+                            self.renderer.draw_text(prop_text, content_x, detail_y, Config.COLORS['cyan'], self.renderer.font_small)
+                            self.renderer.draw_text(f"描述: {item.description}", content_x, detail_y + 30, Config.COLORS['light_gray'], self.renderer.font_small)
+
+        else:
+            # 技能图鉴
+            if not self.player.unlocked_skills:
+                self.renderer.draw_text("尚未解锁任何技能", Config.SCREEN_WIDTH // 2, 200,
+                                       Config.COLORS['gray'], self.renderer.font_large, center=True)
+            else:
+                for i, skill_id in enumerate(self.player.unlocked_skills):
+                    if skill_id in GameDatabase.SKILLS:
+                        skill = GameDatabase.SKILLS[skill_id]
+                        color = Config.COLORS['gold'] if i == self.bestiary_index else Config.COLORS['white']
+                        marker = "▶ " if i == self.bestiary_index else "  "
+                        self.renderer.draw_text(f"{marker}{skill.name} (MP {skill.mana_cost})",
+                                               content_x, content_y + i * 35, color)
+
+                        if i == self.bestiary_index:
+                            detail_y = content_y + len(self.player.unlocked_skills) * 35 + 30
+                            self.renderer.draw_text(f"类型: {skill.skill_type.value}", content_x, detail_y, Config.COLORS['cyan'], self.renderer.font_small)
+                            self.renderer.draw_text(f"效果: {skill.description}", content_x, detail_y + 25, Config.COLORS['light_gray'], self.renderer.font_small)
+
+        # 操作说明
+        self.renderer.draw_text("TAB: 切换分类  |  ↑↓: 选择  |  ESC: 返回",
+                               Config.SCREEN_WIDTH // 2, Config.SCREEN_HEIGHT - 40,
+                               Config.COLORS['light_gray'], self.renderer.font_small, center=True)
     
     def draw_game_over_screen(self):
         """绘制游戏结束画面"""
@@ -2486,6 +2663,8 @@ class Game:
             self.draw_quest_log_screen()
         elif self.state == GameState.SAVE_LOAD:
             self.draw_save_load_screen()
+        elif self.state == GameState.BESTIARY:
+            self.draw_bestiary_screen()
         elif self.state == GameState.GAME_OVER:
             self.draw_game_over_screen()
         elif self.state == GameState.VICTORY:

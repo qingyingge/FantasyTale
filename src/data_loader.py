@@ -72,6 +72,7 @@ class GameState(Enum):
     VICTORY = "victory"
     ARENA = "arena"
     SAVE_LOAD = "save_load"
+    BESTIARY = "bestiary"
 
 
 @dataclass

@@ -212,6 +212,11 @@ class BattleSystem:
         """战斗胜利"""
         self.game.player.enemies_defeated += 1
 
+        # 记录敌人到图鉴
+        if self.game.battle_enemy.id not in self.game.player.known_enemies:
+            self.game.player.known_enemies.add(self.game.battle_enemy.id)
+            self.game.show_message(f"发现新敌人: {self.game.battle_enemy.name}!")
+
         exp_gained = self.game.battle_enemy.exp_reward
         gold_gained = self.game.battle_enemy.gold_reward
 
@@ -226,6 +231,9 @@ class BattleSystem:
                 self.game.player.add_item(drop_id)
                 item = GameDatabase.ITEMS.get(drop_id)
                 if item:
+                    # 记录物品到图鉴
+                    if drop_id not in self.game.player.known_items:
+                        self.game.player.known_items.add(drop_id)
                     self.game.battle_log.append(f"获得 {item.name}！")
 
         if getattr(self.game, 'is_arena_battle', False):
