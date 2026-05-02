@@ -242,7 +242,7 @@ class PathFinder:
         directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
         
         while open_set:
-            current = min(open_set, key=lambda x: g_score.get(x, float('inf')))
+            current = min(open_set, key=lambda x: f_score.get(x, float('inf')))
             
             if current == goal:
                 return PathFinder._reconstruct_path(came_from, current)
@@ -279,7 +279,7 @@ class PathFinder:
             current = came_from[current]
             path.append(current)
         path.reverse()
-        return path[1:] if path else path  # Remove start position
+        return path
 
 
 # ============================================================================
@@ -411,7 +411,7 @@ def create_world_maps() -> Dict[str, GameMap]:
             {"x": 3, "y": 22, "items": ["mana_potion"], "opened": False},
         ],
         portals=[
-            {"x": 28, "y": 12, "target_map": "grassland", "target_x": 2, "target_y": 12, "name": "→ 草原"}
+            {"x": 28, "y": 12, "target_map": "grassland", "target_x": 0, "target_y": 12, "name": "→ 草原"}
         ],
         description="宁静的起点，勇者的出发之地。"
     )
@@ -1089,13 +1089,6 @@ class Game:
             self.player.treasures_found = stats.get("treasures_found", 0)
             self.player.areas_explored = set(stats.get("areas_explored", []))
             
-            # Bug #5 fix: 恢复所有探索过的地图迷雾
-            for map_name in self.player.areas_explored:
-                if map_name in self.maps:
-                    for row in self.maps[map_name].explored:
-                        for i in range(len(row)):
-                            row[i] = True
-            
             # 探索当前区域
             self.current_map.explore_area(self.player.x, self.player.y, 4)
             
@@ -1425,9 +1418,9 @@ class Game:
         
         # 构建路径队列（每一步的方向）
         self.path_queue = []
-        for i in range(len(path) - 1):
-            dx = path[i + 1][0] - path[i][0]
-            dy = path[i + 1][1] - path[i][1]
+        for i in range(1, len(path)):
+            dx = path[i][0] - path[i-1][0]
+            dy = path[i][1] - path[i-1][1]
             self.path_queue.append((dx, dy))
         
         self.is_autopathing = True
@@ -1461,10 +1454,13 @@ class Game:
         enemy_to_remove = None
         for enemy_data in self.current_map.enemies:
             if enemy_data["x"] == new_x and enemy_data["y"] == new_y:
-                self.start_battle(enemy_data["id"])
                 enemy_to_remove = enemy_data
                 break
         if enemy_to_remove:
+            # 先更新玩家坐标（确保寻路正确）
+            self.player.x = new_x
+            self.player.y = new_y
+            self.start_battle(enemy_to_remove["id"])
             self.current_map.enemies.remove(enemy_to_remove)
             return
         
@@ -1647,6 +1643,11 @@ class Game:
             self.player.x = portal["target_x"]
             self.player.y = portal["target_y"]
 
+            # 停止自动寻路
+            self.is_autopathing = False
+            self.path_queue = []
+            self.path_target = None
+
             # 探索新区域
             self.current_map.explore_area(self.player.x, self.player.y, 4)
 
@@ -1708,6 +1709,12 @@ class Game:
         """处理战斗状态输入"""
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
+                # 检查逃跑冷却（3秒内只能尝试一次）
+                current_time = pygame.time.get_ticks()
+                if hasattr(self, 'last_escape_time') and current_time - self.last_escape_time < 3000:
+                    self.battle_log.append("逃跑冷却中...")
+                    return
+                self.last_escape_time = current_time
                 # 尝试逃跑
                 if random.random() < 0.5:
                     self.battle_log.append("成功逃跑！")
@@ -1910,6 +1917,8 @@ class Game:
     def enemy_turn(self):
         """敌人回合"""
         if not self.battle_enemy:
+            return
+        if self.battle_ended:
             return
         if self.battle_enemy.hp <= 0:
             return
