@@ -1,20 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-数据模型 - 从 data_loader 获取游戏数据
+数据模型 - 占位模块
+由于游戏数据已移至 data_loader，此模块保留以保持向后兼容
 """
 
-from dataclasses import dataclass, field
-from typing import List, Dict, Optional
-
-from src.data_loader import ItemType, SkillType, GameDatabase, Item, Skill, Enemy, Quest, QuestObjective, QuestObjective
-
-
-@dataclass
-class Player:
-    pass
-
-
-@dataclass
-class GameState:
-    pass
+# 此模块已弃用，请使用 src.data_loader 中的数据类

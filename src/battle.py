@@ -18,26 +18,27 @@ class BattleSystem:
     def handle_battle_input(self, event):
         """处理战斗状态输入"""
         if event.type == pygame.KEYDOWN:
-if event.key == pygame.K_ESCAPE or event.key == pygame.K_LEFT:
-            self.game.battle_selecting_skill = False
-            return
+            if event.key == pygame.K_ESCAPE or event.key == pygame.K_LEFT:
+                self.game.battle_selecting_skill = False
+                self.game.battle_selecting_item = False
+                return
 
-        if len(skills) == 0:
-            self.game.battle_log.append("没有已解锁的技能！")
-            self.game.battle_selecting_skill = False
-            return
+            skills = [GameDatabase.SKILLS[sid] for sid in self.game.player.unlocked_skills]
 
-        if event.key == pygame.K_ESCAPE:
-            self.game.battle_selecting_skill = False
-            return
+            if self.game.battle_selecting_skill:
+                if len(skills) == 0:
+                    self.game.battle_log.append("没有已解锁的技能！")
+                    self.game.battle_selecting_skill = False
+                    return
 
-        if event.key == pygame.K_UP:
-            self.game.battle_submenu_index = (self.game.battle_submenu_index - 1) % len(skills)
-        elif event.key == pygame.K_DOWN:
-            self.game.battle_submenu_index = (self.game.battle_submenu_index + 1) % len(skills)
-        elif event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
-            skill = skills[self.game.battle_submenu_index]
-            self.execute_skill(skill)
+                if event.key == pygame.K_UP:
+                    self.game.battle_submenu_index = (self.game.battle_submenu_index - 1) % len(skills)
+                elif event.key == pygame.K_DOWN:
+                    self.game.battle_submenu_index = (self.game.battle_submenu_index + 1) % len(skills)
+                elif event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                    skill = skills[self.game.battle_submenu_index]
+                    self.execute_skill(skill)
+                return
 
     def execute_skill(self, skill):
         """执行技能"""

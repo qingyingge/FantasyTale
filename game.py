@@ -1013,12 +1013,12 @@ class Game:
             
 # 恢复统计
             stats = save_data.get("stats", {})
-            self. player.enemies_ defeated = stats.get("enemies_defeated", 0)
-            self. player. treasures_ found = stats.get("treasures_found", 0)
+            self.player.enemies_defeated = stats.get("enemies_defeated", 0)
+            self.player.treasures_found = stats.get("treasures_found", 0)
             self.player.areas_explored = set(stats.get("areas_explored", []))
             
             # Bug #5 fix: 恢复所有探索过的地图迷雾
-            for map_ name in self.player.areas_explored:
+            for map_name in self.player.areas_explored:
                 if map_name in self.maps:
                     for row in self.maps[map_name].explored:
                         for i in range(len(row)):
@@ -1519,7 +1519,6 @@ class Game:
                 gold_reward=enemy_template.gold_reward,
                 drops=enemy_template.drops.copy(),
                 skills=enemy_template.skills.copy(),
-                sprite_data=SPRITE_ENEMY
             )
 
             # 加载敌人精灵数据
@@ -2305,6 +2304,50 @@ class Game:
         turn_color = Config.COLORS['green'] if self.battle_turn == "player" else Config.COLORS['red']
         self.renderer.draw_text(turn_text, Config.SCREEN_WIDTH // 2, 550, turn_color, self.renderer.font_large, center=True)
     
+    def draw_shop_screen(self):
+        """绘制商店画面"""
+        self.renderer.draw_menu_background()
+        
+        shop_name = self.current_shop.get("name", "商店") if self.current_shop else "商店"
+        mode_text = "购买" if self.shop_buy_mode else "卖出"
+        
+        # 标题
+        self.renderer.draw_text(f"{shop_name} - {mode_text}", Config.SCREEN_WIDTH // 2, 40, Config.COLORS['gold'], 
+                               self.renderer.font_title, center=True)
+        
+        # 玩家金币
+        self.renderer.draw_text(f"拥有金币: {self.player.gold}", Config.SCREEN_WIDTH - 150, 40, Config.COLORS['gold'])
+        
+        # 物品列表
+        shop_items = self.current_shop.get("shop_items", []) if self.current_shop else []
+        
+        if len(shop_items) == 0:
+            self.renderer.draw_text("商店没有物品出售", Config.SCREEN_WIDTH // 2, 200,
+                                  Config.COLORS['gray'], self.renderer.font_large, center=True)
+        else:
+            self.renderer.draw_text("商品列表", 50, 80, Config.COLORS['cyan'])
+            
+            for i, item_id in enumerate(shop_items):
+                if item_id in GameDatabase.ITEMS:
+                    item = GameDatabase.ITEMS[item_id]
+                    color = Config.COLORS['gold'] if i == self.shop_menu_index else Config.COLORS['white']
+                    marker = "▶ " if i == self.shop_menu_index else "  "
+                    
+                    if self.shop_buy_mode:
+                        price_color = Config.COLORS['green'] if self.player.gold >= item.price else Config.COLORS['red']
+                        self.renderer.draw_text(f"{marker}{item.icon} {item.name} - {item.price}G", 70, 100 + i * 30, color)
+                        self.renderer.draw_text(f"     {item.description}", 70, 100 + i * 30 + 18, Config.COLORS['light_gray'], self.renderer.font_small)
+                    else:
+                        player_qty = self.player.inventory.get(item_id, 0)
+                        qty_color = Config.COLORS['green'] if player_qty > 0 else Config.COLORS['red']
+                        sell_price = item.price // 2
+                        self.renderer.draw_text(f"{marker}{item.icon} {item.name} x{player_qty}", 70, 100 + i * 30, color)
+                        self.renderer.draw_text(f"     卖出价: {sell_price}G", 70, 100 + i * 30 + 18, qty_color, self.renderer.font_small)
+        
+        # 操作提示
+        self.renderer.draw_text("空格: 交易 | TAB: 切换买卖模式 | ESC: 离开", Config.SCREEN_WIDTH // 2, Config.SCREEN_HEIGHT - 40,
+                               Config.COLORS['light_gray'], self.renderer.font_small, center=True)
+    
     def draw_inventory_screen(self):
         """绘制背包画面"""
         self.renderer.draw_menu_background()
@@ -2664,9 +2707,7 @@ class Game:
         elif self.state == GameState.INVENTORY:
             self.draw_inventory_screen()
         elif self.state == GameState.SHOP:
-            self.draw_inventory_screen()  # 暂时使用背包画面
-            self.renderer.draw_text("商店 (TAB切换买卖)", Config.SCREEN_WIDTH // 2, 40, Config.COLORS['gold'],
-                                   self.renderer.font_title, center=True)
+            self.draw_shop_screen()
         elif self.state == GameState.CHARACTER:
             self.draw_character_screen()
         elif self.state == GameState.QUEST_LOG:
