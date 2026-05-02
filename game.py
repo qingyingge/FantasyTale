@@ -27,14 +27,16 @@ from src.data_loader import (
     TileType,
     GameState,
     get_sprite,
+    Item,
+    Skill,
+    Enemy,
+    Quest,
+    QuestObjective,
 )
 from src.constants import (
     SPRITE_PLAYER, SPRITE_NPC, SPRITE_ENEMY,
     SPRITE_TREE, SPRITE_HOUSE, SPRITE_CHEST, SPRITE_PORTAL,
     load_sprites,
-)
-from src.models import (
-    Item, Skill, Enemy, Quest, QuestObjective,
 )
 
 
@@ -222,12 +224,12 @@ class PathFinder:
     """A* 寻路算法"""
     
     @staticmethod
-    def heuristic(a: tuple, b: tuple) -> int:
+    def heuristic(a, b):
         """曼哈顿距离启发式"""
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
     
     @staticmethod
-    def find_path(game_map: GameMap, start: tuple, goal: tuple) -> List[tuple]:
+    def find_path(game_map, start, goal):
         """A* 寻路算法"""
         if not game_map.is_walkable(goal[0], goal[1]):
             return []
@@ -270,7 +272,7 @@ class PathFinder:
         return []
     
     @staticmethod
-    def _reconstruct_path(came_from: dict, current: tuple) -> List[tuple]:
+    def _reconstruct_path(came_from, current):
         """重建路径"""
         path = [current]
         while current in came_from:
@@ -278,6 +280,11 @@ class PathFinder:
             path.append(current)
         path.reverse()
         return path[1:] if path else path  # Remove start position
+
+
+# ============================================================================
+# 地图生成
+# ============================================================================
 class GameMap:
     """游戏地图"""
     
