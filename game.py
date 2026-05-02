@@ -216,8 +216,68 @@ class Player:
 
 
 # ============================================================================
-# 地图生成
+# 寻路系统
 # ============================================================================
+class PathFinder:
+    """A* 寻路算法"""
+    
+    @staticmethod
+    def heuristic(a: tuple, b: tuple) -> int:
+        """曼哈顿距离启发式"""
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+    
+    @staticmethod
+    def find_path(game_map: GameMap, start: tuple, goal: tuple) -> List[tuple]:
+        """A* 寻路算法"""
+        if not game_map.is_walkable(goal[0], goal[1]):
+            return []
+        
+        open_set = {start}
+        came_from = {}
+        g_score = {start: 0}
+        f_score = {start: PathFinder.heuristic(start, goal)}
+        
+        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+        
+        while open_set:
+            current = min(open_set, key=lambda x: g_score.get(x, float('inf')))
+            
+            if current == goal:
+                return PathFinder._reconstruct_path(came_from, current)
+            
+            open_set.remove(current)
+            
+            for dx, dy in directions:
+                neighbor = (current[0] + dx, current[1] + dy)
+                
+                if not (0 <= neighbor[0] < game_map.width and 
+                      0 <= neighbor[1] < game_map.height):
+                    continue
+                
+                if not game_map.is_walkable(neighbor[0], neighbor[1]):
+                    continue
+                
+                tentative_g = g_score[current] + 1
+                
+                if tentative_g < g_score.get(neighbor, float('inf')):
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g
+                    f_score[neighbor] = tentative_g + PathFinder.heuristic(neighbor, goal)
+                    
+                    if neighbor not in open_set:
+                        open_set.add(neighbor)
+        
+        return []
+    
+    @staticmethod
+    def _reconstruct_path(came_from: dict, current: tuple) -> List[tuple]:
+        """重建路径"""
+        path = [current]
+        while current in came_from:
+            current = came_from[current]
+            path.append(current)
+        path.reverse()
+        return path[1:] if path else path  # Remove start position
 class GameMap:
     """游戏地图"""
     
@@ -838,6 +898,11 @@ class Game:
         self.message = ""
         self.message_timer = 0
         
+        # 寻路系统
+        self.path_queue = []  # 路径队列 [(dx, dy), ...]
+        self.is_autopathing = False  # 是否正在自动寻路
+        self.path_target = None  # 寻路目标点 (x, y)
+        
         # 设置玩家初始位置
         self.player.x = 15
         self.player.y = 12
@@ -1145,7 +1210,26 @@ class Game:
 
         # 持续移动处理（探索模式）
         if self.state == GameState.EXPLORE:
-            if self.move_cooldown > 0:
+            # 自动寻路逻辑
+            if self.is_autopathing and self.path_queue:
+                if self.move_cooldown > 0:
+                    self.move_cooldown -= 1
+                else:
+                    dx, dy = self.path_queue.pop(0)
+                    self.move_player(dx, dy)
+                    self.move_cooldown = self.move_delay
+                    
+                    # 检查是否到达目标
+                    if (self.player.x, self.player.y) == self.path_target:
+                        self.is_autopathing = False
+                        self.path_target = None
+                        self.show_message("到达目的地")
+                    
+                    # 检查路径是否为空（无法继续）
+                    if not self.path_queue and self.is_autopathing:
+                        self.is_autopathing = False
+                        self.path_target = None
+            elif self.move_cooldown > 0:
                 self.move_cooldown -= 1
             else:
                 dx, dy = 0, 0
@@ -1168,6 +1252,11 @@ class Game:
             # 优先检查ESC键，可能在其他状态处理前切换状态
             if event.key == pygame.K_ESCAPE:
                 self.toggle_menu()
+                # 中断自动寻路
+                if self.is_autopathing:
+                    self.is_autopathing = False
+                    self.path_queue = []
+                    self.path_target = None
                 return
             
             # 状态检查应在处理任何输入之前
@@ -1180,21 +1269,38 @@ class Game:
                 self.keys_pressed['down'] = False
                 self.keys_pressed['left'] = False
                 self.keys_pressed['right'] = False
+                # 键盘移动时中断自动寻路
+                if self.is_autopathing:
+                    self.is_autopathing = False
+                    self.path_queue = []
+                    self.path_target = None
             elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
                 self.keys_pressed['down'] = True
                 self.keys_pressed['up'] = False
                 self.keys_pressed['left'] = False
                 self.keys_pressed['right'] = False
+                if self.is_autopathing:
+                    self.is_autopathing = False
+                    self.path_queue = []
+                    self.path_target = None
             elif event.key == pygame.K_LEFT or event.key == pygame.K_a:
                 self.keys_pressed['left'] = True
                 self.keys_pressed['up'] = False
                 self.keys_pressed['down'] = False
                 self.keys_pressed['right'] = False
+                if self.is_autopathing:
+                    self.is_autopathing = False
+                    self.path_queue = []
+                    self.path_target = None
             elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
                 self.keys_pressed['right'] = True
                 self.keys_pressed['up'] = False
                 self.keys_pressed['down'] = False
                 self.keys_pressed['left'] = False
+                if self.is_autopathing:
+                    self.is_autopathing = False
+                    self.path_queue = []
+                    self.path_target = None
 
             # 记录按键状态，但不立即移动
             # 移动由update()中的持续移动逻辑处理
@@ -1273,6 +1379,55 @@ class Game:
                 self.keys_pressed['left'] = False
             elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
                 self.keys_pressed['right'] = False
+    
+    def handle_mouse_click(self, pos: tuple):
+        """处理鼠标点击寻路"""
+        mouse_x, mouse_y = pos
+        
+        # 计算点击的瓦片坐标
+        tile_x = int((mouse_x + self.camera_x) // Config.TILE_SIZE)
+        tile_y = int((mouse_y + self.camera_y) // Config.TILE_SIZE)
+        
+        # 检查是否在地图范围内
+        if tile_x < 0 or tile_x >= self.current_map.width or \
+           tile_y < 0 or tile_y >= self.current_map.height:
+            return
+        
+        # 检查是否点击了已探索的区域
+        if not self.current_map.explored[tile_y][tile_x]:
+            self.show_message("未探索的区域无法寻路")
+            return
+        
+        # 起点和终点
+        start = (self.player.x, self.player.y)
+        goal = (tile_x, tile_y)
+        
+        # 如果点击的是当前位置，不做处理
+        if start == goal:
+            return
+        
+        # 寻路
+        path = PathFinder.find_path(self.current_map, start, goal)
+        
+        if not path:
+            self.show_message("无法到达该位置")
+            return
+        
+        # 设置寻路目标
+        self.path_target = goal
+        
+        # 构建路径队列（每一步的方向）
+        self.path_queue = []
+        for i in range(len(path) - 1):
+            dx = path[i + 1][0] - path[i][0]
+            dy = path[i + 1][1] - path[i][1]
+            self.path_queue.append((dx, dy))
+        
+        self.is_autopathing = True
+        self.show_message("开始自动寻路")
+        
+        # 清除键盘移动状态
+        self.keys_pressed = {'up': False, 'down': False, 'left': False, 'right': False}
     
     def move_player(self, dx, dy):
         """移动玩家"""
@@ -2035,6 +2190,11 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            
+            # 鼠标点击处理（探索模式）
+            if event.type == pygame.MOUSEBUTTONDOWN and self.state == GameState.EXPLORE:
+                if event.button == 1:  # 左键点击
+                    self.handle_mouse_click(event.pos)
             
             # 特殊事件处理
             if event.type == pygame.USEREVENT + 1:
