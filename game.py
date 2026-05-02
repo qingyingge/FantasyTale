@@ -421,7 +421,7 @@ def create_world_maps() -> Dict[str, GameMap]:
     maps["desert"] = GameMap(
         "灼热沙漠", 50, 40, desert_tiles,
         enemies=[
-            {"id": "sand_worm", "x": 15, "y": 10},
+            {"id": "sand_worm", "x": 15, "y": 18},  # Bug #6 fix: 移动到PATH上
             {"id": "sand_worm", "x": 20, "y": 25},
             {"id": "desert_scorpion", "x": 30, "y": 15},
             {"id": "desert_scorpion", "x": 35, "y": 30},
@@ -899,6 +899,7 @@ class Game:
         self.battle_selecting_item = False
         self.player_turn_done = False
         self.is_arena_battle = False
+        self.battle_ended = False  # Bug #1 fix
 
         # 重置商店
         self.current_shop = None
@@ -1010,11 +1011,18 @@ class Game:
             self.player.completed_quests = save_data.get("completed_quests", [])
             self.player.active_quests = save_data.get("active_quests", [])
             
-            # 恢复统计
+# 恢复统计
             stats = save_data.get("stats", {})
-            self.player.enemies_defeated = stats.get("enemies_defeated", 0)
-            self.player.treasures_found = stats.get("treasures_found", 0)
+            self. player.enemies_ defeated = stats.get("enemies_defeated", 0)
+            self. player. treasures_ found = stats.get("treasures_found", 0)
             self.player.areas_explored = set(stats.get("areas_explored", []))
+            
+            # Bug #5 fix: 恢复所有探索过的地图迷雾
+            for map_ name in self.player.areas_explored:
+                if map_name in self.maps:
+                    for row in self.maps[map_name].explored:
+                        for i in range(len(row)):
+                            row[i] = True
             
             # 探索当前区域
             self.current_map.explore_area(self.player.x, self.player.y, 4)
@@ -1605,7 +1613,7 @@ class Game:
             self.battle_selecting_skill = False
             return
 
-        if event.key == pygame.K_ESCAPE:
+        if event.key == pygame.K_ESCAPE or event.key == pygame.K_LEFT:
             self.battle_selecting_skill = False
             return
 
@@ -1668,15 +1676,15 @@ class Game:
                 if item.item_type == ItemType.CONSUMABLE:
                     consumables.append((item, qty))
         
-        if event.key == pygame.K_ESCAPE:
-            self.battle_selecting_item = False
-            return
-        
         if len(consumables) == 0:
             self.battle_log.append("没有可用的道具！")
             self.battle_selecting_item = False
             return
         
+        if event.key == pygame.K_ESCAPE or event.key == pygame.K_LEFT:
+            self.battle_selecting_item = False
+            return
+
         if event.key == pygame.K_UP:
             self.battle_submenu_index = (self.battle_submenu_index - 1) % len(consumables)
         elif event.key == pygame.K_DOWN:
@@ -1740,6 +1748,8 @@ class Game:
     
     def enemy_turn(self):
         """敌人回合"""
+        if not self.battle_enemy:
+            return
         if self.battle_enemy.hp <= 0:
             return
         
@@ -2458,10 +2468,10 @@ class Game:
                     action_text = "按空格覆盖保存" if self.save_menu_active else "按空格加载"
                     self.renderer.draw_text(action_text, Config.SCREEN_WIDTH - 300, y + 50,
                                            action_color, self.renderer.font_medium)
-                except:
+                except Exception as e:
                     self.renderer.draw_text(f"存档位 {slot}", 120, y, Config.COLORS['red'],
                                            self.renderer.font_large)
-                    self.renderer.draw_text("存档文件损坏", 120, y + 35, Config.COLORS['gray'])
+                    self.renderer.draw_text(f"损坏: {str(e)[:20]}", 120, y + 35, Config.COLORS['gray'])
             else:
                 # 空存档位
                 self.renderer.draw_text(f"存档位 {slot}", 120, y, Config.COLORS['gray'],

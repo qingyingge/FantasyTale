@@ -18,41 +18,9 @@ class BattleSystem:
     def handle_battle_input(self, event):
         """处理战斗状态输入"""
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                self.attempt_escape()
-                return
-
-            if self.game.battle_turn != "player":
-                return
-
-            if self.game.battle_selecting_skill:
-                self.handle_skill_selection(event)
-            elif self.game.battle_selecting_item:
-                self.handle_item_selection(event)
-            else:
-                self.handle_battle_menu(event)
-
-    def handle_battle_menu(self, event):
-        """处理战斗菜单"""
-        if event.key == pygame.K_UP:
-            self.game.battle_menu_index = (self.game.battle_menu_index - 1) % len(self.menu_options)
-        elif event.key == pygame.K_DOWN:
-            self.game.battle_menu_index = (self.game.battle_menu_index + 1) % len(self.menu_options)
-        elif event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
-            if self.game.battle_menu_index == 0:
-                self.player_attack()
-            elif self.game.battle_menu_index == 1:
-                self.game.battle_selecting_skill = True
-                self.game.battle_submenu_index = 0
-            elif self.game.battle_menu_index == 2:
-                self.game.battle_selecting_item = True
-                self.game.battle_submenu_index = 0
-            elif self.game.battle_menu_index == 3:
-                self.player_defend()
-
-    def handle_skill_selection(self, event):
-        """处理技能选择"""
-        skills = [GameDatabase.SKILLS[sid] for sid in self.game.player.unlocked_skills]
+if event.key == pygame.K_ESCAPE or event.key == pygame.K_LEFT:
+            self.game.battle_selecting_skill = False
+            return
 
         if len(skills) == 0:
             self.game.battle_log.append("没有已解锁的技能！")
@@ -122,12 +90,12 @@ class BattleSystem:
                 if item.item_type.value == "消耗品":
                     consumables.append((item, qty))
 
-        if event.key == pygame.K_ESCAPE:
+        if len(consumables) == 0:
+            self.game.battle_log.append("没有可用的道具！")
             self.game.battle_selecting_item = False
             return
 
-        if len(consumables) == 0:
-            self.game.battle_log.append("没有可用的道具！")
+        if event.key == pygame.K_ESCAPE or event.key == pygame.K_LEFT:
             self.game.battle_selecting_item = False
             return
 
