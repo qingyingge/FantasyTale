@@ -67,6 +67,7 @@ pyinstaller FantasyTale.spec
 
 ## 游戏版本
 
+- v1.2 - 探索系统优化
 - v1.1 - 当前版本
 
 ## 许可证
