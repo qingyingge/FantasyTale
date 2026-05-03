@@ -924,13 +924,31 @@ class Game:
         self.current_map.explore_area(self.player.x, self.player.y, 4)
         self.player.areas_explored.add("village")
 
+        # 移动动画（必须在摄像机初始化之前）
+        self.render_x = float(self.player.x)
+        self.render_y = float(self.player.y)
+        self.is_moving = False
+        self.move_from_x = 0
+        self.move_from_y = 0
+        self.move_to_x = 0
+        self.move_to_y = 0
+        self.move_progress = 0.0
+        self.move_anim_speed = 0.12
+        self.pending_move = None
+
         # 初始化摄像机位置
         self.update_camera()
 
         # 按键状态追踪
         self.keys_pressed = {}
-        self.move_cooldown = 0  # 移动冷却时间（帧）
-        self.move_delay = 8  # 每8帧移动一次（60FPS下约7.5次/秒）
+        self.is_moving = False  # 是否在移动动画中
+        self.move_from_x = 0  # 动画起始坐标
+        self.move_from_y = 0
+        self.move_to_x = 0  # 动画目标坐标
+        self.move_to_y = 0
+        self.move_progress = 0.0  # 动画进度 0.0~1.0
+        self.move_anim_speed = 0.12  # 动画速度
+        self.pending_move = None  # 预输入的下一次移动方向
         self.steps_since_encounter = 3  # 移动3步后才能遇敌
         
         # 输入防抖
@@ -1012,7 +1030,6 @@ class Game:
 
         # 重置按键状态
         self.keys_pressed = {}
-        self.move_cooldown = 0
         self.input_cooldown = 0
         
         # 重置存档菜单
@@ -1095,9 +1112,8 @@ class Game:
             # 重置状态
             self.state = GameState.EXPLORE
             self.keys_pressed = {}
-            self.move_cooldown = 0
             self.input_cooldown = 0
-            
+
             # 更新摄像机
             self.update_camera()
             
@@ -1169,16 +1185,18 @@ class Game:
         # 恢复位置
         self.player.x = data.get("x", 15)
         self.player.y = data.get("y", 12)
+        self.render_x = float(self.player.x)
+        self.render_y = float(self.player.y)
         self.player.buffs = data.get("buffs", [])
     
     def update_camera(self):
-        """更新摄像机位置"""
-        target_x = self.player.x * Config.TILE_SIZE - Config.SCREEN_WIDTH // 2
-        target_y = self.player.y * Config.TILE_SIZE - Config.SCREEN_HEIGHT // 2
-        
+        """更新摄像机位置 - 跟随渲染坐标而非逻辑坐标"""
+        target_x = self.render_x * Config.TILE_SIZE - Config.SCREEN_WIDTH // 2
+        target_y = self.render_y * Config.TILE_SIZE - Config.SCREEN_HEIGHT // 2
+
         # 平滑移动
-        self.camera_x += (target_x - self.camera_x) * 0.1
-        self.camera_y += (target_y - self.camera_y) * 0.1
+        self.camera_x += (target_x - self.camera_x) * 0.2
+        self.camera_y += (target_y - self.camera_y) * 0.2
         
         # 边界限制
         max_x = self.current_map.width * Config.TILE_SIZE - Config.SCREEN_WIDTH
@@ -1208,29 +1226,61 @@ class Game:
         if self.state == GameState.EXPLORE:
             self.update_camera()
 
-        # 持续移动处理（探索模式）
-        if self.state == GameState.EXPLORE:
+        # 更新移动动画
+        if self.state == GameState.EXPLORE and self.is_moving:
+            self.move_progress += self.move_anim_speed
+
+            if self.move_progress >= 1.0:
+                self.move_progress = 1.0
+                # 动画完成，正式更新坐标
+                self.player.x = self.move_to_x
+                self.player.y = self.move_to_y
+                # 立即更新探索区域（动画完成时）
+                self.current_map.explore_area(self.player.x, self.player.y, 3)
+                self.current_map.explore_area(self.player.x, self.player.y, 4)
+                # 检查区域探索
+                self.check_area_exploration()
+                # 随机遇敌
+                self.check_random_encounter()
+
+                # 检查是否有按键按住，如果有则立即开始下一次移动
+                dx, dy = 0, 0
+                if self.keys_pressed.get('up', False):
+                    dy = -1
+                elif self.keys_pressed.get('down', False):
+                    dy = 1
+                elif self.keys_pressed.get('left', False):
+                    dx = -1
+                elif self.keys_pressed.get('right', False):
+                    dx = 1
+
+                if dx != 0 and not (self.player.x - dx == self.move_from_x and self.player.y - dy == self.move_from_y):
+                    # 继续移动
+                    self.move_player(dx, dy)
+                else:
+                    self.is_moving = False
+
+            # 计算当前渲染位置（线性插值）
+            self.render_x = self.move_from_x + (self.move_to_x - self.move_from_x) * self.move_progress
+            self.render_y = self.move_from_y + (self.move_to_y - self.move_from_y) * self.move_progress
+
+        # 持续移动处理（探索模式）- 只有非动画时才允许触发新移动
+        if self.state == GameState.EXPLORE and not self.is_moving:
             # 自动寻路逻辑
             if self.is_autopathing and self.path_queue:
-                if self.move_cooldown > 0:
-                    self.move_cooldown -= 1
-                else:
-                    dx, dy = self.path_queue.pop(0)
-                    self.move_player(dx, dy)
-                    self.move_cooldown = self.move_delay
-                    
-                    # 检查是否到达目标
-                    if (self.player.x, self.player.y) == self.path_target:
-                        self.is_autopathing = False
-                        self.path_target = None
-                        self.show_message("到达目的地")
-                    
-                    # 检查路径是否为空（无法继续）
-                    if not self.path_queue and self.is_autopathing:
-                        self.is_autopathing = False
-                        self.path_target = None
-            elif self.move_cooldown > 0:
-                self.move_cooldown -= 1
+                dx, dy = self.path_queue.pop(0)
+                self.move_player(dx, dy)
+
+                # 检查是否到达目标
+                if (self.player.x, self.player.y) == self.path_target:
+                    self.is_autopathing = False
+                    self.path_target = None
+                    self.show_message("到达目的地")
+
+                # 检查路径是否为空（无法继续）
+                if not self.path_queue and self.is_autopathing:
+                    self.is_autopathing = False
+                    self.path_target = None
             else:
                 dx, dy = 0, 0
                 if self.keys_pressed.get('up', False):
@@ -1244,7 +1294,6 @@ class Game:
 
                 if dx != 0 or dy != 0:
                     self.move_player(dx, dy)
-                    self.move_cooldown = self.move_delay  # 恢复到正常冷却时间
     
     def handle_explore_input(self, event):
         """处理探索状态输入"""
@@ -1476,13 +1525,13 @@ class Game:
                 self.use_portal(portal)
                 return
         
-        # 移动玩家
-        self.player.x = new_x
-        self.player.y = new_y
-        
-        # 更新探索区域
-        self.current_map.explore_area(self.player.x, self.player.y, 3)
-        self.current_map.explore_area(self.player.x, self.player.y, 4)
+        # 设置移动动画
+        self.move_from_x = self.player.x
+        self.move_from_y = self.player.y
+        self.move_to_x = new_x
+        self.move_to_y = new_y
+        self.move_progress = 0.0
+        self.is_moving = True
         
         # 检查区域探索
         self.check_area_exploration()
@@ -1503,7 +1552,7 @@ class Game:
     def check_random_encounter(self):
         """随机遇敌"""
         # 战斗后必须移动3步才可能遇敌
-        if self.steps_since_encounter >= 0:
+        if self.steps_since_encounter > 0:
             self.steps_since_encounter -= 1
             return
         
@@ -1642,6 +1691,10 @@ class Game:
             self.player.current_map = target_map_name
             self.player.x = portal["target_x"]
             self.player.y = portal["target_y"]
+            self.render_x = float(self.player.x)
+            self.render_y = float(self.player.y)
+            self.is_moving = False
+            self.pending_move = None
 
             # 停止自动寻路
             self.is_autopathing = False
@@ -1743,7 +1796,6 @@ class Game:
                         'left': False,
                         'right': False
                     }
-                    self.move_cooldown = 0
                 else:
                     self.battle_log.append("逃跑失败！")
                     self.end_player_turn()
@@ -1973,7 +2025,6 @@ class Game:
                         'left': False,
                         'right': False
                     }
-                    self.move_cooldown = 0
 
                     # 检查商店
                     if self.current_npc and self.current_npc.get("is_shop"):
@@ -2054,9 +2105,8 @@ class Game:
                     'left': False,
                     'right': False
                 }
-                self.move_cooldown = 0
                 return
-            
+
             shop_items = self.current_shop.get("shop_items", [])
             if len(shop_items) == 0:
                 return
@@ -2110,7 +2160,6 @@ class Game:
                     'left': False,
                     'right': False
                 }
-                self.move_cooldown = 0
                 return
 
             items = list(self.player.inventory.items())
@@ -2146,7 +2195,6 @@ class Game:
                     'left': False,
                     'right': False
                 }
-                self.move_cooldown = 0
 
     def handle_quest_log_input(self, event):
         """处理任务日志输入"""
@@ -2160,7 +2208,6 @@ class Game:
                     'left': False,
                     'right': False
                 }
-                self.move_cooldown = 0
                 return
 
             active_quests = self.player.active_quests
@@ -2183,9 +2230,8 @@ class Game:
                     'left': False,
                     'right': False
                 }
-                self.move_cooldown = 0
                 return
-            
+
             # TAB键切换保存/加载模式
             if event.key == pygame.K_TAB:
                 self.save_menu_active = not self.save_menu_active
@@ -2260,8 +2306,7 @@ class Game:
                         'left': False,
                         'right': False
                     }
-                    self.move_cooldown = 0
-            
+
             if self.state == GameState.TITLE:
                 self.handle_title_input(event)
             elif self.state == GameState.EXPLORE:
@@ -2356,7 +2401,7 @@ class Game:
         
         # 绘制玩家
         if self.current_map.explored[int(self.player.y)][int(self.player.x)]:
-            self.renderer.draw_entity('player', self.player.x, self.player.y,
+            self.renderer.draw_entity('player', self.render_x, self.render_y,
                                  self.camera_x, self.camera_y)
         
         # 绘制HUD
