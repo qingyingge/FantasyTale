@@ -1,0 +1,32 @@
+{
+  "animations": {
+    "player": {
+      "frames": ["player_0", "player_1", "player_2"],
+      "fps": 3
+    },
+    "npc": {
+      "frames": ["npc_0", "npc_1"],
+      "fps": 2
+    },
+    "enemy": {
+      "frames": ["enemy_0", "enemy_1", "enemy_2"],
+      "fps": 3
+    },
+    "portal": {
+      "frames": ["portal_0", "portal_1", "portal_2"],
+      "fps": 4
+    },
+    "chest": {
+      "frames": ["chest_0", "chest_1"],
+      "fps": 2
+    },
+    "tree": {
+      "frames": ["tree"],
+      "fps": 1
+    },
+    "house": {
+      "frames": ["house"],
+      "fps": 1
+    }
+  }
+}

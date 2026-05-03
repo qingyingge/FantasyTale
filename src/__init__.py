@@ -6,7 +6,7 @@ Fantasy Tale - Game Modules
 
 from src.data_loader import (
     Config, PixelArt, ItemType, SkillType, TileType, GameState,
-    GameDatabase, get_sprite, load_game_data,
+    GameDatabase, get_sprite, load_game_data, AnimationManager,
 )
 from src.data_loader import Item, Skill, Enemy, Quest, QuestObjective
 from src.constants import (
@@ -27,6 +27,7 @@ __all__ = [
     'GameDatabase',
     'load_game_data',
     'get_sprite',
+    'AnimationManager',
     'load_sprites',
     'SPRITE_PLAYER',
     'SPRITE_NPC',

@@ -27,6 +27,7 @@ from src.data_loader import (
     TileType,
     GameState,
     get_sprite,
+    AnimationManager,
     Item,
     Skill,
     Enemy,
@@ -667,13 +668,14 @@ class Renderer:
     
     def _preload_sprites(self):
         """预渲染所有像素精灵"""
-        self.sprites['player'] = get_sprite('player', self.scale)
-        self.sprites['npc'] = get_sprite('npc', self.scale)
-        self.sprites['enemy'] = get_sprite('enemy', self.scale)
+        anim = AnimationManager.load_animations()
+        for name, config in anim.items():
+            frames = config.get("frames", [name])
+            for frame in frames:
+                self.sprites[frame] = get_sprite(frame, self.scale)
+        
         self.sprites['tree'] = get_sprite('tree', self.scale)
         self.sprites['house'] = get_sprite('house', self.scale)
-        self.sprites['chest'] = get_sprite('chest', self.scale)
-        self.sprites['portal'] = get_sprite('portal', self.scale)
     
     def draw_tile(self, x, y, tile_type: TileType, camera_x=0, camera_y=0):
         """绘制单个瓦片"""
@@ -739,9 +741,11 @@ class Renderer:
         screen_x = x * self.tile_size - camera_x
         screen_y = y * self.tile_size - camera_y
         
-        sprite = self.sprites.get(sprite_name)
+        frame_name = AnimationManager.get_frame(sprite_name)
+        sprite = self.sprites.get(frame_name)
+        if not sprite:
+            sprite = self.sprites.get(sprite_name)
         if sprite:
-            # 居中偏移
             offset_x = (self.tile_size - sprite.get_width()) // 2
             offset_y = (self.tile_size - sprite.get_height()) // 2
             self.screen.blit(sprite, (screen_x + offset_x, screen_y + offset_y))
@@ -2967,10 +2971,16 @@ class Game:
     def run(self):
         """运行游戏主循环"""
         while self.running:
+            dt = self.clock.tick(Config.FPS)
             self.handle_input()
             self.update()
             self.draw()
-            self.clock.tick(Config.FPS)
+            
+            AnimationManager.get_frame('player', dt)
+            AnimationManager.get_frame('npc', dt)
+            AnimationManager.get_frame('enemy', dt)
+            AnimationManager.get_frame('portal', dt)
+            AnimationManager.get_frame('chest', dt)
         
         pygame.quit()
         sys.exit()

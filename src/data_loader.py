@@ -243,6 +243,8 @@ class PixelArt:
     """像素艺术绘制辅助类"""
 
     _sprites = None
+    _sprite_images = {}
+    ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "sprites")
 
     @classmethod
     def load_sprites(cls) -> dict:
@@ -251,6 +253,20 @@ class PixelArt:
             data = _load_json("sprites.json")
             cls._sprites = data.get("sprites", {})
         return cls._sprites
+
+    @classmethod
+    def _load_image(cls, sprite_name: str):
+        """从PNG文件加载精灵图像"""
+        import pygame
+        if sprite_name in cls._sprite_images:
+            return cls._sprite_images[sprite_name]
+        
+        filepath = os.path.join(cls.ASSETS_DIR, f"{sprite_name}.png")
+        if os.path.exists(filepath):
+            surface = pygame.image.load(filepath)
+            cls._sprite_images[sprite_name] = surface
+            return surface
+        return None
 
     @staticmethod
     def draw_pixel_art(surface, x, y, pixel_data, scale=3, offset_x=0, offset_y=0):
@@ -269,22 +285,17 @@ class PixelArt:
 
     @classmethod
     def create_sprite(cls, sprite_name: str, scale: int = 3):
-        """从精灵数据创建Sprite表面"""
+        """从PNG文件创建Sprite表面"""
         import pygame
-
-        sprites = cls.load_sprites()
-        pixel_data = sprites.get(sprite_name)
-        if not pixel_data:
-            return None
-        height = len(pixel_data)
-        width = len(pixel_data[0]) if pixel_data else 0
-        surface = pygame.Surface((width * scale, height * scale), pygame.SRCALPHA)
-        for row_idx, row in enumerate(pixel_data):
-            for col_idx, color in enumerate(row):
-                if color:
-                    rect = pygame.Rect(col_idx * scale, row_idx * scale, scale, scale)
-                    pygame.draw.rect(surface, _tuple_from_list(color), rect)
-        return surface
+        surface = cls._load_image(sprite_name)
+        if surface:
+            if scale != 1:
+                new_width = surface.get_width() * scale
+                new_height = surface.get_height() * scale
+                scaled = pygame.transform.scale(surface, (new_width, new_height))
+                return scaled
+            return surface.copy()
+        return None
 
 
 class GameDatabase:
@@ -411,8 +422,75 @@ def load_game_data():
     GameDatabase.load_all()
 
 
-def get_sprite(sprite_name: str, scale: int = None) -> Any:
+def get_sprite(sprite_name: str, scale: int = None, frame: int = None) -> Any:
     """获取精灵表面"""
     if scale is None:
         scale = Config.PIXEL_SCALE
+    
+    if frame is not None:
+        sprite_name = f"{sprite_name}_{frame}"
+    
     return PixelArt.create_sprite(sprite_name, scale)
+
+
+class AnimationManager:
+    """动画管理器"""
+
+    _animations = None
+    _frame_timers = {}
+    _current_frames = {}
+
+    @classmethod
+    def load_animations(cls) -> dict:
+        """加载动画配置"""
+        if cls._animations is None:
+            data = _load_json("animations.json")
+            cls._animations = data.get("animations", {})
+        return cls._animations
+
+    @classmethod
+    def get_animation(cls, name: str) -> Optional[dict]:
+        """获取动画配置"""
+        animations = cls.load_animations()
+        return animations.get(name)
+
+    @classmethod
+    def get_frame(cls, name: str, dt: int = 0) -> str:
+        """获取当前动画帧名称"""
+        anim = cls.get_animation(name)
+        if not anim:
+            return name
+        
+        frames = anim.get("frames", [name])
+        if len(frames) == 1:
+            return frames[0]
+        
+        if name not in cls._current_frames:
+            cls._current_frames[name] = 0
+            cls._frame_timers[name] = 0
+        
+        fps = anim.get("fps", 3)
+        frame_duration = 1000 // fps
+        
+        cls._frame_timers[name] += dt
+        if cls._frame_timers[name] >= frame_duration:
+            cls._frame_timers[name] = 0
+            cls._current_frames[name] = (cls._current_frames[name] + 1) % len(frames)
+        
+        return frames[cls._current_frames[name]]
+
+    @classmethod
+    def reset(cls, name: str):
+        """重置动画帧"""
+        if name in cls._current_frames:
+            cls._current_frames[name] = 0
+            cls._frame_timers[name] = 0
+
+    @classmethod
+    def get_animated_sprite(cls, sprite_name: str, scale: int = None, dt: int = 0) -> Any:
+        """获取带动画的精灵"""
+        if scale is None:
+            scale = Config.PIXEL_SCALE
+        
+        frame_name = cls.get_frame(sprite_name, dt)
+        return PixelArt.create_sprite(frame_name, scale)
