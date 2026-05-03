@@ -1709,6 +1709,13 @@ class Game:
         """处理战斗状态输入"""
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
+                # 子菜单中ESC只用于返回主菜单，不触发逃跑
+                if self.battle_selecting_skill:
+                    self.battle_selecting_skill = False
+                    return
+                if self.battle_selecting_item:
+                    self.battle_selecting_item = False
+                    return
                 # 检查逃跑冷却（3秒内只能尝试一次）
                 current_time = pygame.time.get_ticks()
                 if hasattr(self, 'last_escape_time') and current_time - self.last_escape_time < 3000:
@@ -1728,7 +1735,7 @@ class Game:
                     self.battle_selecting_skill = False
                     self.battle_selecting_item = False
                     self.is_arena_battle = False
-                    self.battle_ended = False  # 重置战斗结束标记
+                    self.battle_ended = False
                     # 清除所有按键状态
                     self.keys_pressed = {
                         'up': False,
@@ -1878,10 +1885,14 @@ class Game:
     
     def player_attack(self):
         """玩家普通攻击"""
+        if self.battle_ended:
+            return
         damage = max(1, self.player.get_total_attack() - self.battle_enemy.defense // 2 + random.randint(-3, 3))
         self.battle_enemy.hp -= damage
         self.battle_log.append(f"造成 {damage} 点伤害！")
         self.check_battle_status()
+        if not self.battle_ended:
+            self.end_player_turn()
     
     def player_defend(self):
         """玩家防御"""
@@ -1899,7 +1910,6 @@ class Game:
         """检查战斗状态"""
         if self.battle_enemy.hp <= 0:
             self.battle_enemy.hp = 0
-            # 防止重复调用
             if self.battle_ended:
                 return
             self.battle_ended = True
@@ -1909,6 +1919,8 @@ class Game:
     
     def end_player_turn(self):
         """结束玩家回合"""
+        if self.battle_ended:
+            return
         self.player_turn_done = True
         self.battle_turn = "enemy"
         # 1秒后敌人行动
@@ -1991,6 +2003,11 @@ class Game:
         """战斗胜利"""
         self.player.enemies_defeated += 1
 
+        # 记录敌人到图鉴
+        if self.battle_enemy.id not in self.player.known_enemies:
+            self.player.known_enemies.add(self.battle_enemy.id)
+            self.show_message(f"发现新敌人: {self.battle_enemy.name}!")
+
         exp_gained = self.battle_enemy.exp_reward
         gold_gained = self.battle_enemy.gold_reward
 
@@ -2006,6 +2023,9 @@ class Game:
                 self.player.add_item(drop_id)
                 item = GameDatabase.ITEMS.get(drop_id)
                 if item:
+                    # 记录物品到图鉴
+                    if drop_id not in self.player.known_items:
+                        self.player.known_items.add(drop_id)
                     self.battle_log.append(f"获得 {item.name}！")
 
         # 更新任务进度 - 如果是竞技场战斗，更新竞技场任务
@@ -2426,7 +2446,7 @@ class Game:
             menu_options = ["攻击", "技能", "道具", "防御"]
             for i, option in enumerate(menu_options):
                 color = Config.COLORS['gold'] if i == self.battle_menu_index else Config.COLORS['white']
-                marker = "▶ " if i == self.battle_menu_index else "  "
+                marker = "* " if i == self.battle_menu_index else "  "
                 self.renderer.draw_text(f"{marker}{option}", 650, 350 + i * 35, color)
         
         # 技能选择
@@ -2435,7 +2455,7 @@ class Game:
             self.renderer.draw_text("选择技能 (ESC返回):", 600, 350, Config.COLORS['gold'])
             for i, skill in enumerate(skills):
                 color = Config.COLORS['gold'] if i == self.battle_submenu_index else Config.COLORS['white']
-                marker = "▶ " if i == self.battle_submenu_index else "  "
+                marker = "* " if i == self.battle_submenu_index else "  "
                 self.renderer.draw_text(f"{marker}{skill.name} (MP {skill.mana_cost})", 600, 380 + i * 30, color)
 
             # 显示选中技能的详细信息
@@ -2453,7 +2473,7 @@ class Game:
             if consumables:
                 for i, (item, qty) in enumerate(consumables):
                     color = Config.COLORS['gold'] if i == self.battle_submenu_index else Config.COLORS['white']
-                    marker = "▶ " if i == self.battle_submenu_index else "  "
+                    marker = "* " if i == self.battle_submenu_index else "  "
                     self.renderer.draw_text(f"{marker}{item.name} x{qty}", 600, 380 + i * 30, color)
 
                 # 显示选中道具的详细信息
@@ -2507,7 +2527,7 @@ class Game:
                 if item_id in GameDatabase.ITEMS:
                     item = GameDatabase.ITEMS[item_id]
                     color = Config.COLORS['gold'] if i == self.shop_menu_index else Config.COLORS['white']
-                    marker = "▶ " if i == self.shop_menu_index else "  "
+                    marker = "* " if i == self.shop_menu_index else "  "
                     
                     if self.shop_buy_mode:
                         price_color = Config.COLORS['green'] if self.player.gold >= item.price else Config.COLORS['red']
@@ -2554,7 +2574,7 @@ class Game:
             if item_id in GameDatabase.ITEMS:
                 item = GameDatabase.ITEMS[item_id]
                 color = Config.COLORS['gold'] if i == self.inventory_menu_index else Config.COLORS['white']
-                marker = "▶ " if i == self.inventory_menu_index else "  "
+                marker = "* " if i == self.inventory_menu_index else "  "
                 self.renderer.draw_text(f"{marker}{item.icon} {item.name} x{qty}", 70, 200 + i * 30, color)
         
         # 操作提示
@@ -2766,8 +2786,8 @@ class Game:
                     if enemy_id in GameDatabase.ENEMIES:
                         enemy = GameDatabase.ENEMIES[enemy_id]
                         color = Config.COLORS['gold'] if i == self.bestiary_index else Config.COLORS['white']
-                        marker = "▶ " if i == self.bestiary_index else "  "
-                        self.renderer.draw_text(f"{marker}{enemy.icon} {enemy.name} Lv.{enemy.level}",
+                        marker = "* " if i == self.bestiary_index else "  "
+                        self.renderer.draw_text(f"{marker}[{enemy.name}] Lv.{enemy.level}",
                                                content_x, content_y + i * 35, color)
 
                         if i == self.bestiary_index:
@@ -2788,7 +2808,7 @@ class Game:
                     if item_id in GameDatabase.ITEMS:
                         item = GameDatabase.ITEMS[item_id]
                         color = Config.COLORS['gold'] if i == self.bestiary_index else Config.COLORS['white']
-                        marker = "▶ " if i == self.bestiary_index else "  "
+                        marker = "* " if i == self.bestiary_index else "  "
                         self.renderer.draw_text(f"{marker}{item.icon} {item.name} ({item.item_type.value})",
                                                content_x, content_y + i * 35, color)
 
@@ -2815,7 +2835,7 @@ class Game:
                     if skill_id in GameDatabase.SKILLS:
                         skill = GameDatabase.SKILLS[skill_id]
                         color = Config.COLORS['gold'] if i == self.bestiary_index else Config.COLORS['white']
-                        marker = "▶ " if i == self.bestiary_index else "  "
+                        marker = "* " if i == self.bestiary_index else "  "
                         self.renderer.draw_text(f"{marker}{skill.name} (MP {skill.mana_cost})",
                                                content_x, content_y + i * 35, color)
 
